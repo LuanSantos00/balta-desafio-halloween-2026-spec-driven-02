@@ -3,7 +3,7 @@
 | ID | Tarefa | Origem | Depende de | Concluída quando |
 |---|---|---|---|---|
 | T-01 | [x] Criar projeto e estrutura de pastas | Constituição | | Projeto compila |
-| T-02 | Modelar a entidade Link e a migração | RF-01, RF-08 | T-01 | Migração aplica no banco |
+| T-02 | [x] Modelar a entidade Link e a migração | RF-01, RF-08 | T-01 | Migração aplica no banco |
 | T-03 | Gerar código aleatório de 7 caracteres | RF-02, D-03 | T-01 | Teste unitário cobre formato e alfabeto |
 | T-04 | Validar URL de destino | RN-02, borda 2048 | T-01 | Teste cobre http, https e inválidos |
 | T-05 | Criar link com código automático | RF-01 | T-02, T-03, T-04 | Teste de integração cria e retorna 201 |

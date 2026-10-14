@@ -17,7 +17,7 @@
 
 ## Convenções
 - Nomes de classe e arquivo em inglês, mensagens de erro em português
-- Commit no formato: tipo(escopo): descrição, com o identificador do requisito
+- Commit no formato: tipo(escopo): descrição, com o identificador do requisito em português
 
 ## Governança
 - Se o plano contradiz a constituição, quem muda é o plano
