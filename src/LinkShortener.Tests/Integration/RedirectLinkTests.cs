@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using LinkShortener.Api.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LinkShortener.Tests.Integration;
@@ -43,6 +45,25 @@ public sealed class RedirectLinkTests
             Assert.Equal(
                 new Uri("https://example.com/article"),
                 redirectResponse.Headers.Location);
+
+            const int concurrentRedirects = 50;
+            var concurrentResponses = await Task.WhenAll(
+                Enumerable.Range(0, concurrentRedirects)
+                    .Select(_ => client.GetAsync("/ARTICLE")));
+            Assert.All(
+                concurrentResponses,
+                response => Assert.Equal(HttpStatusCode.Redirect, response.StatusCode));
+
+            using (var scope = app.Services.CreateScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<LinkDbContext>();
+                var accessCount = await dbContext.Links
+                    .Where(link => link.Code == "ARTICLE")
+                    .Select(link => link.AccessCount)
+                    .SingleAsync();
+
+                Assert.Equal(concurrentRedirects + 1, accessCount);
+            }
 
             var missingResponse = await client.GetAsync("/MISSING");
             Assert.Equal(HttpStatusCode.NotFound, missingResponse.StatusCode);

@@ -64,7 +64,16 @@ public sealed class LinkService(
             return new LinkRedirectResult.NotFound();
         }
 
-        if (link.ExpiresAtUtc is not null && link.ExpiresAtUtc <= DateTime.UtcNow)
+        var accessedAtUtc = DateTime.UtcNow;
+        if (link.ExpiresAtUtc is not null && link.ExpiresAtUtc <= accessedAtUtc)
+        {
+            return new LinkRedirectResult.Expired();
+        }
+
+        if (!await linkRepository.TryIncrementAccessCountAsync(
+                code,
+                accessedAtUtc,
+                cancellationToken))
         {
             return new LinkRedirectResult.Expired();
         }

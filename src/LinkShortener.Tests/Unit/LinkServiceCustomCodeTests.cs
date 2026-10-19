@@ -88,5 +88,20 @@ public sealed class LinkServiceCustomCodeTests
         {
             return Task.FromResult(Links.SingleOrDefault(link => link.Code == code));
         }
+
+        public Task<bool> TryIncrementAccessCountAsync(
+            string code,
+            DateTime accessedAtUtc,
+            CancellationToken cancellationToken)
+        {
+            var link = Links.SingleOrDefault(entity => entity.Code == code);
+            if (link is null || (link.ExpiresAtUtc is not null && link.ExpiresAtUtc <= accessedAtUtc))
+            {
+                return Task.FromResult(false);
+            }
+
+            link.AccessCount++;
+            return Task.FromResult(true);
+        }
     }
 }

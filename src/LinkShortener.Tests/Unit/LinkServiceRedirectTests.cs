@@ -15,6 +15,7 @@ public sealed class LinkServiceRedirectTests
 
         var redirect = Assert.IsType<LinkRedirectResult.Redirect>(result);
         Assert.Same(link, redirect.Link);
+        Assert.Equal(1, link.AccessCount);
     }
 
     [Fact]
@@ -36,6 +37,7 @@ public sealed class LinkServiceRedirectTests
         var result = await service.GetRedirectAsync(link.Code);
 
         Assert.IsType<LinkRedirectResult.Expired>(result);
+        Assert.Equal(0, link.AccessCount);
     }
 
     private static Link CreateLink(DateTime? expiresAtUtc)
@@ -74,6 +76,21 @@ public sealed class LinkServiceRedirectTests
         public Task<Link?> FindByCodeAsync(string code, CancellationToken cancellationToken)
         {
             return Task.FromResult(link?.Code == code ? link : null);
+        }
+
+        public Task<bool> TryIncrementAccessCountAsync(
+            string code,
+            DateTime accessedAtUtc,
+            CancellationToken cancellationToken)
+        {
+            if (link?.Code != code
+                || (link.ExpiresAtUtc is not null && link.ExpiresAtUtc <= accessedAtUtc))
+            {
+                return Task.FromResult(false);
+            }
+
+            link.AccessCount++;
+            return Task.FromResult(true);
         }
     }
 }

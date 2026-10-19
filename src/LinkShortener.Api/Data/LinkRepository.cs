@@ -18,6 +18,24 @@ public sealed class LinkRepository(LinkDbContext dbContext) : ILinkRepository
             cancellationToken);
     }
 
+    public async Task<bool> TryIncrementAccessCountAsync(
+        string code,
+        DateTime accessedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var updatedRows = await dbContext.Links
+            .Where(entity =>
+                entity.Code == code
+                && (entity.ExpiresAtUtc == null || entity.ExpiresAtUtc > accessedAtUtc))
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(
+                    entity => entity.AccessCount,
+                    entity => entity.AccessCount + 1),
+                cancellationToken);
+
+        return updatedRows == 1;
+    }
+
     public async Task<bool> AddAsync(Link link, CancellationToken cancellationToken)
     {
         dbContext.Links.Add(link);
