@@ -14,7 +14,10 @@ public static class LinksEndpoints
                 HttpContext httpContext,
                 CancellationToken cancellationToken) =>
             {
-                var result = await linkService.CreateAsync(request.TargetUrl, cancellationToken);
+                var result = await linkService.CreateAsync(
+                    request.TargetUrl,
+                    request.Code,
+                    cancellationToken);
 
                 return result switch
                 {
@@ -28,6 +31,14 @@ public static class LinksEndpoints
                         statusCode: StatusCodes.Status400BadRequest,
                         title: "URL de destino inválida",
                         detail: "A URL de destino deve ser um endereço HTTP ou HTTPS válido com até 2048 caracteres."),
+                    LinkCreationResult.InvalidCode => Results.Problem(
+                        statusCode: StatusCodes.Status400BadRequest,
+                        title: "Código inválido",
+                        detail: "O código deve ter de 4 a 20 caracteres e conter apenas letras maiúsculas de A a Z e números de 1 a 9."),
+                    LinkCreationResult.DuplicateCode => Results.Problem(
+                        statusCode: StatusCodes.Status409Conflict,
+                        title: "Código já está em uso",
+                        detail: "Escolha um código diferente."),
                     _ => throw new InvalidOperationException("Resultado de criação de link não reconhecido.")
                 };
             });
@@ -35,7 +46,7 @@ public static class LinksEndpoints
         return endpoints;
     }
 
-    private sealed record CreateLinkRequest(string? TargetUrl);
+    private sealed record CreateLinkRequest(string? TargetUrl, string? Code);
 
     private sealed record CreateLinkResponse(string ShortUrl, string Code, string ManagementKey);
 }

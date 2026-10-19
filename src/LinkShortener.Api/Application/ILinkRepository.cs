@@ -4,5 +4,7 @@ namespace LinkShortener.Api.Application;
 
 public interface ILinkRepository
 {
-    Task AddAsync(Link link, CancellationToken cancellationToken);
+    Task<bool> CodeExistsAsync(string code, CancellationToken cancellationToken);
+
+    Task<bool> AddAsync(Link link, CancellationToken cancellationToken);
 }

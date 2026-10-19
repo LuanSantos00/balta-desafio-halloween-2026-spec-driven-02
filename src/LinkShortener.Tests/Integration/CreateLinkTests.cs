@@ -61,8 +61,56 @@ public sealed class CreateLinkTests
         }
     }
 
+    [Fact]
+    public async Task PostLinks_WithDuplicateCustomCode_ReturnsConflict()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), $"linkshortener-{Guid.NewGuid():N}.db");
+        var app = Program.CreateApp(
+            [],
+            builder =>
+            {
+                builder.Configuration["ConnectionStrings:Links"] = $"Data Source={databasePath};Pooling=False";
+                builder.WebHost.UseUrls("http://127.0.0.1:0");
+            });
+
+        try
+        {
+            await app.StartAsync();
+
+            var server = app.Services.GetRequiredService<IServer>();
+            var address = server.Features.Get<IServerAddressesFeature>()!.Addresses.Single();
+            using var client = new HttpClient { BaseAddress = new Uri(address) };
+            var invalidResponse = await client.PostAsJsonAsync(
+                "/api/links",
+                new { targetUrl = "https://example.com/article", code = "bad" });
+            var request = new { targetUrl = "https://example.com/article", code = "MYCODE" };
+
+            var createdResponse = await client.PostAsJsonAsync("/api/links", request);
+            var duplicateResponse = await client.PostAsJsonAsync("/api/links", request);
+
+            Assert.Equal(HttpStatusCode.BadRequest, invalidResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, createdResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, duplicateResponse.StatusCode);
+            var problem = await duplicateResponse.Content.ReadFromJsonAsync<ProblemDetailsResponse>();
+            Assert.NotNull(problem);
+            Assert.Equal((int)HttpStatusCode.Conflict, problem.Status);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+
+            if (File.Exists(databasePath))
+            {
+                File.Delete(databasePath);
+            }
+        }
+    }
+
     private sealed record CreateLinkResponse(
         string ShortUrl,
         string Code,
         string ManagementKey);
+
+    private sealed record ProblemDetailsResponse(int? Status, string? Title, string? Detail);
 }

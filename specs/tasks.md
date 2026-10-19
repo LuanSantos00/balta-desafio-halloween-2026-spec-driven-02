@@ -7,7 +7,7 @@
 | T-03 | [x] Gerar código aleatório de 7 caracteres | RF-02, D-03 | T-01 | Teste unitário cobre formato e alfabeto |
 | T-04 | [x] Validar URL de destino | RN-02, borda 2048 | T-01 | Teste cobre http, https e inválidos |
 | T-05 | [x] Criar link com código automático | RF-01 | T-02, T-03, T-04 | Teste de integração cria e retorna 201 |
-| T-06 | Aceitar código próprio com unicidade | RF-03, RN-01, D-04 | T-05 | Código duplicado retorna 409 |
+| T-06 | [x] Aceitar código próprio com unicidade | RF-03, RN-01, D-04 | T-05 | Código duplicado retorna 409 |
 | T-07 | Redirecionar por código | RF-04 | T-05 | Teste de integração retorna 302 |
 | T-08 | Incrementar contador de forma atômica | RF-05, RN-04, D-02 | T-07 | Teste concorrente não perde contagem |
 | T-09 | Endpoint de estatísticas com chave | RF-07, DC-03 | T-05 | Chave errada retorna 401 |

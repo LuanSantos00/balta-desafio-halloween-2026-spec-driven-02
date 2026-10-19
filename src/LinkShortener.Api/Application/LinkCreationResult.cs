@@ -11,4 +11,8 @@ public abstract record LinkCreationResult
     public sealed record Created(Link Link, string ManagementKey) : LinkCreationResult;
 
     public sealed record InvalidTargetUrl : LinkCreationResult;
+
+    public sealed record InvalidCode : LinkCreationResult;
+
+    public sealed record DuplicateCode : LinkCreationResult;
 }
