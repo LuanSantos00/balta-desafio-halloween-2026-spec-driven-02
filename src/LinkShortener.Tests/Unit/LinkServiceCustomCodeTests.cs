@@ -83,5 +83,10 @@ public sealed class LinkServiceCustomCodeTests
             ExistingCodes.Add(link.Code);
             return Task.FromResult(true);
         }
+
+        public Task<Link?> FindByCodeAsync(string code, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(Links.SingleOrDefault(link => link.Code == code));
+        }
     }
 }

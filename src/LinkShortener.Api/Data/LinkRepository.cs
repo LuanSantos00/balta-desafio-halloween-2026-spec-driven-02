@@ -11,6 +11,13 @@ public sealed class LinkRepository(LinkDbContext dbContext) : ILinkRepository
         return dbContext.Links.AnyAsync(entity => entity.Code == code, cancellationToken);
     }
 
+    public Task<Link?> FindByCodeAsync(string code, CancellationToken cancellationToken)
+    {
+        return dbContext.Links.SingleOrDefaultAsync(
+            entity => entity.Code == code,
+            cancellationToken);
+    }
+
     public async Task<bool> AddAsync(Link link, CancellationToken cancellationToken)
     {
         dbContext.Links.Add(link);

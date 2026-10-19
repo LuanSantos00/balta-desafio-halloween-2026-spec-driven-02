@@ -54,6 +54,24 @@ public sealed class LinkService(
         return new LinkCreationResult.Created(link, managementKey);
     }
 
+    public async Task<LinkRedirectResult> GetRedirectAsync(
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        var link = await linkRepository.FindByCodeAsync(code, cancellationToken);
+        if (link is null)
+        {
+            return new LinkRedirectResult.NotFound();
+        }
+
+        if (link.ExpiresAtUtc is not null && link.ExpiresAtUtc <= DateTime.UtcNow)
+        {
+            return new LinkRedirectResult.Expired();
+        }
+
+        return new LinkRedirectResult.Redirect(link);
+    }
+
     private static bool IsValidCustomCode(string code)
     {
         return code.Length is >= 4 and <= 20

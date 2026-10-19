@@ -43,6 +43,21 @@ public static class LinksEndpoints
                 };
             });
 
+        endpoints.MapGet(
+            "/{code}",
+            async (string code, LinkService linkService, CancellationToken cancellationToken) =>
+            {
+                var result = await linkService.GetRedirectAsync(code, cancellationToken);
+
+                return result switch
+                {
+                    LinkRedirectResult.Redirect redirect => Results.Redirect(redirect.Link.TargetUrl),
+                    LinkRedirectResult.NotFound => Results.NotFound(),
+                    LinkRedirectResult.Expired => Results.StatusCode(StatusCodes.Status410Gone),
+                    _ => throw new InvalidOperationException("Resultado de redirecionamento de link não reconhecido.")
+                };
+            });
+
         return endpoints;
     }
 
