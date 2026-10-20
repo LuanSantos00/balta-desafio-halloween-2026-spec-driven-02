@@ -15,6 +15,7 @@ public partial class Program
 
         var connectionString = builder.Configuration.GetConnectionString("Links") ?? "Data Source=links.db";
         builder.Services.AddDbContext<LinkDbContext>(options => options.UseSqlite(connectionString));
+        builder.Services.AddMemoryCache(options => options.SizeLimit = 1000);
         builder.Services.AddScoped<ILinkRepository, LinkRepository>();
         builder.Services.AddScoped<LinkService>();
         builder.Services.AddSingleton<ShortCodeGenerator>();

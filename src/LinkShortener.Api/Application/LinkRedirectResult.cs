@@ -1,5 +1,3 @@
-using LinkShortener.Api.Data;
-
 namespace LinkShortener.Api.Application;
 
 public abstract record LinkRedirectResult
@@ -8,7 +6,7 @@ public abstract record LinkRedirectResult
     {
     }
 
-    public sealed record Redirect(Link Link) : LinkRedirectResult;
+    public sealed record Redirect(string TargetUrl) : LinkRedirectResult;
 
     public sealed record NotFound : LinkRedirectResult;
 

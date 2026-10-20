@@ -51,7 +51,7 @@ public static class LinksEndpoints
 
                 return result switch
                 {
-                    LinkRedirectResult.Redirect redirect => Results.Redirect(redirect.Link.TargetUrl),
+                    LinkRedirectResult.Redirect redirect => Results.Redirect(redirect.TargetUrl),
                     LinkRedirectResult.NotFound => Results.NotFound(),
                     LinkRedirectResult.Expired => Results.StatusCode(StatusCodes.Status410Gone),
                     _ => throw new InvalidOperationException("Resultado de redirecionamento de link não reconhecido.")

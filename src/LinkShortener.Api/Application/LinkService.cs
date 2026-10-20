@@ -1,14 +1,18 @@
 using System.Security.Cryptography;
 using System.Text;
 using LinkShortener.Api.Data;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace LinkShortener.Api.Application;
 
 public sealed class LinkService(
     ILinkRepository linkRepository,
     ShortCodeGenerator shortCodeGenerator,
-    TargetUrlValidator targetUrlValidator)
+    TargetUrlValidator targetUrlValidator,
+    IMemoryCache redirectCache)
 {
+    private static readonly TimeSpan RedirectCacheSlidingExpiration = TimeSpan.FromMinutes(5);
+
     public async Task<LinkCreationResult> CreateAsync(
         string? targetUrl,
         string? customCode = null,
@@ -58,15 +62,22 @@ public sealed class LinkService(
         string code,
         CancellationToken cancellationToken = default)
     {
-        var link = await linkRepository.FindByCodeAsync(code, cancellationToken);
-        if (link is null)
+        if (!redirectCache.TryGetValue<CachedRedirect>(code, out var cachedRedirect))
         {
-            return new LinkRedirectResult.NotFound();
+            var link = await linkRepository.FindByCodeAsync(code, cancellationToken);
+            if (link is null)
+            {
+                return new LinkRedirectResult.NotFound();
+            }
+
+            cachedRedirect = new CachedRedirect(link.TargetUrl, link.ExpiresAtUtc);
         }
 
         var accessedAtUtc = DateTime.UtcNow;
-        if (link.ExpiresAtUtc is not null && link.ExpiresAtUtc <= accessedAtUtc)
+        if (cachedRedirect!.ExpiresAtUtc is not null
+            && cachedRedirect.ExpiresAtUtc <= accessedAtUtc)
         {
+            redirectCache.Remove(code);
             return new LinkRedirectResult.Expired();
         }
 
@@ -75,10 +86,20 @@ public sealed class LinkService(
                 accessedAtUtc,
                 cancellationToken))
         {
+            redirectCache.Remove(code);
             return new LinkRedirectResult.Expired();
         }
 
-        return new LinkRedirectResult.Redirect(link);
+        redirectCache.Set(
+            code,
+            cachedRedirect,
+            new MemoryCacheEntryOptions
+            {
+                Size = 1,
+                SlidingExpiration = RedirectCacheSlidingExpiration
+            });
+
+        return new LinkRedirectResult.Redirect(cachedRedirect.TargetUrl);
     }
 
     public async Task<LinkStatisticsResult> GetStatisticsAsync(
@@ -114,4 +135,6 @@ public sealed class LinkService(
                 character is >= 'A' and <= 'Z'
                 or >= '1' and <= '9');
     }
+
+    private sealed record CachedRedirect(string TargetUrl, DateTime? ExpiresAtUtc);
 }

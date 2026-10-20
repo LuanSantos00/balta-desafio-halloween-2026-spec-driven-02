@@ -1,5 +1,6 @@
 using LinkShortener.Api.Application;
 using LinkShortener.Api.Data;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace LinkShortener.Tests.Unit;
 
@@ -9,19 +10,38 @@ public sealed class LinkServiceRedirectTests
     public async Task GetRedirectAsync_WithExistingUnexpiredLink_ReturnsRedirect()
     {
         var link = CreateLink(expiresAtUtc: DateTime.UtcNow.AddMinutes(1));
-        var service = CreateService(link);
+        using var cache = CreateCache();
+        var service = CreateService(link, cache);
 
         var result = await service.GetRedirectAsync(link.Code);
 
         var redirect = Assert.IsType<LinkRedirectResult.Redirect>(result);
-        Assert.Same(link, redirect.Link);
+        Assert.Equal(link.TargetUrl, redirect.TargetUrl);
         Assert.Equal(1, link.AccessCount);
+    }
+
+    [Fact]
+    public async Task GetRedirectAsync_WithCachedLink_SkipsLookupAndStillIncrementsAccessCount()
+    {
+        var link = CreateLink(expiresAtUtc: DateTime.UtcNow.AddMinutes(1));
+        using var cache = CreateCache();
+        var repository = new FakeLinkRepository(link);
+        var service = CreateService(repository, cache);
+
+        await service.GetRedirectAsync(link.Code);
+        var result = await service.GetRedirectAsync(link.Code);
+
+        var redirect = Assert.IsType<LinkRedirectResult.Redirect>(result);
+        Assert.Equal(link.TargetUrl, redirect.TargetUrl);
+        Assert.Equal(1, repository.FindByCodeCallCount);
+        Assert.Equal(2, link.AccessCount);
     }
 
     [Fact]
     public async Task GetRedirectAsync_WithMissingCode_ReturnsNotFound()
     {
-        var service = CreateService(link: null);
+        using var cache = CreateCache();
+        var service = CreateService(link: null, cache);
 
         var result = await service.GetRedirectAsync("MISSING");
 
@@ -32,7 +52,8 @@ public sealed class LinkServiceRedirectTests
     public async Task GetRedirectAsync_WithExpiredLink_ReturnsExpired()
     {
         var link = CreateLink(expiresAtUtc: DateTime.UtcNow.AddMinutes(-1));
-        var service = CreateService(link);
+        using var cache = CreateCache();
+        var service = CreateService(link, cache);
 
         var result = await service.GetRedirectAsync(link.Code);
 
@@ -53,16 +74,29 @@ public sealed class LinkServiceRedirectTests
         };
     }
 
-    private static LinkService CreateService(Link? link)
+    private static MemoryCache CreateCache()
+    {
+        return new MemoryCache(new MemoryCacheOptions { SizeLimit = 1000 });
+    }
+
+    private static LinkService CreateService(Link? link, IMemoryCache cache)
+    {
+        return CreateService(new FakeLinkRepository(link), cache);
+    }
+
+    private static LinkService CreateService(FakeLinkRepository repository, IMemoryCache cache)
     {
         return new LinkService(
-            new FakeLinkRepository(link),
+            repository,
             new ShortCodeGenerator(),
-            new TargetUrlValidator());
+            new TargetUrlValidator(),
+            cache);
     }
 
     private sealed class FakeLinkRepository(Link? link) : ILinkRepository
     {
+        public int FindByCodeCallCount { get; private set; }
+
         public Task<bool> CodeExistsAsync(string code, CancellationToken cancellationToken)
         {
             return Task.FromResult(link?.Code == code);
@@ -75,6 +109,7 @@ public sealed class LinkServiceRedirectTests
 
         public Task<Link?> FindByCodeAsync(string code, CancellationToken cancellationToken)
         {
+            FindByCodeCallCount++;
             return Task.FromResult(link?.Code == code ? link : null);
         }
 

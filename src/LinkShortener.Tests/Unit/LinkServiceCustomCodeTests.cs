@@ -1,5 +1,6 @@
 using LinkShortener.Api.Application;
 using LinkShortener.Api.Data;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace LinkShortener.Tests.Unit;
 
@@ -16,7 +17,8 @@ public sealed class LinkServiceCustomCodeTests
     public async Task CreateAsync_WithInvalidCustomCode_ReturnsInvalidCode(string code)
     {
         var repository = new FakeLinkRepository();
-        var service = CreateService(repository);
+        using var cache = CreateCache();
+        var service = CreateService(repository, cache);
 
         var result = await service.CreateAsync("https://example.com", code);
 
@@ -31,7 +33,8 @@ public sealed class LinkServiceCustomCodeTests
     public async Task CreateAsync_WithValidCustomCode_CreatesLink(string code)
     {
         var repository = new FakeLinkRepository();
-        var service = CreateService(repository);
+        using var cache = CreateCache();
+        var service = CreateService(repository, cache);
 
         var result = await service.CreateAsync("https://example.com", code);
 
@@ -45,7 +48,8 @@ public sealed class LinkServiceCustomCodeTests
     {
         var repository = new FakeLinkRepository();
         repository.ExistingCodes.Add("EXISTS");
-        var service = CreateService(repository);
+        using var cache = CreateCache();
+        var service = CreateService(repository, cache);
 
         var result = await service.CreateAsync("https://example.com", "EXISTS");
 
@@ -53,12 +57,18 @@ public sealed class LinkServiceCustomCodeTests
         Assert.Empty(repository.Links);
     }
 
-    private static LinkService CreateService(FakeLinkRepository repository)
+    private static MemoryCache CreateCache()
+    {
+        return new MemoryCache(new MemoryCacheOptions { SizeLimit = 1000 });
+    }
+
+    private static LinkService CreateService(FakeLinkRepository repository, IMemoryCache cache)
     {
         return new LinkService(
             repository,
             new ShortCodeGenerator(),
-            new TargetUrlValidator());
+            new TargetUrlValidator(),
+            cache);
     }
 
     private sealed class FakeLinkRepository : ILinkRepository

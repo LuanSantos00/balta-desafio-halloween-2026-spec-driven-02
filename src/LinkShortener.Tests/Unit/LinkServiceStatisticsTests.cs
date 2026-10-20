@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using LinkShortener.Api.Application;
 using LinkShortener.Api.Data;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace LinkShortener.Tests.Unit;
 
@@ -14,7 +15,8 @@ public sealed class LinkServiceStatisticsTests
     {
         var link = CreateLink();
         link.AccessCount = 12;
-        var service = CreateService(link);
+        using var cache = CreateCache();
+        var service = CreateService(link, cache);
 
         var result = await service.GetStatisticsAsync(link.Code, ManagementKey);
 
@@ -29,7 +31,8 @@ public sealed class LinkServiceStatisticsTests
     [InlineData("incorrect-management-key")]
     public async Task GetStatisticsAsync_WithInvalidManagementKey_ReturnsUnauthorized(string? managementKey)
     {
-        var service = CreateService(CreateLink());
+        using var cache = CreateCache();
+        var service = CreateService(CreateLink(), cache);
 
         var result = await service.GetStatisticsAsync("TEST", managementKey);
 
@@ -39,7 +42,8 @@ public sealed class LinkServiceStatisticsTests
     [Fact]
     public async Task GetStatisticsAsync_WithUnknownCode_ReturnsNotFound()
     {
-        var service = CreateService(link: null);
+        using var cache = CreateCache();
+        var service = CreateService(link: null, cache);
 
         var result = await service.GetStatisticsAsync("MISSING", ManagementKey);
 
@@ -59,12 +63,18 @@ public sealed class LinkServiceStatisticsTests
         };
     }
 
-    private static LinkService CreateService(Link? link)
+    private static MemoryCache CreateCache()
+    {
+        return new MemoryCache(new MemoryCacheOptions { SizeLimit = 1000 });
+    }
+
+    private static LinkService CreateService(Link? link, IMemoryCache cache)
     {
         return new LinkService(
             new FakeLinkRepository(link),
             new ShortCodeGenerator(),
-            new TargetUrlValidator());
+            new TargetUrlValidator(),
+            cache);
     }
 
     private sealed class FakeLinkRepository(Link? link) : ILinkRepository
