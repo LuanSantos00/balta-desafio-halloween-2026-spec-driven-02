@@ -1,0 +1,95 @@
+using System.Security.Cryptography;
+using System.Text;
+using LinkShortener.Api.Application;
+using LinkShortener.Api.Data;
+
+namespace LinkShortener.Tests.Unit;
+
+public sealed class LinkServiceStatisticsTests
+{
+    private const string ManagementKey = "valid-management-key";
+
+    [Fact]
+    public async Task GetStatisticsAsync_WithValidManagementKey_ReturnsAccessCount()
+    {
+        var link = CreateLink();
+        link.AccessCount = 12;
+        var service = CreateService(link);
+
+        var result = await service.GetStatisticsAsync(link.Code, ManagementKey);
+
+        var statistics = Assert.IsType<LinkStatisticsResult.Authorized>(result);
+        Assert.Equal(link.Code, statistics.Code);
+        Assert.Equal(12, statistics.AccessCount);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("incorrect-management-key")]
+    public async Task GetStatisticsAsync_WithInvalidManagementKey_ReturnsUnauthorized(string? managementKey)
+    {
+        var service = CreateService(CreateLink());
+
+        var result = await service.GetStatisticsAsync("TEST", managementKey);
+
+        Assert.IsType<LinkStatisticsResult.Unauthorized>(result);
+    }
+
+    [Fact]
+    public async Task GetStatisticsAsync_WithUnknownCode_ReturnsNotFound()
+    {
+        var service = CreateService(link: null);
+
+        var result = await service.GetStatisticsAsync("MISSING", ManagementKey);
+
+        Assert.IsType<LinkStatisticsResult.NotFound>(result);
+    }
+
+    private static Link CreateLink()
+    {
+        return new Link
+        {
+            Code = "TEST",
+            TargetUrl = "https://example.com",
+            CreatedAtUtc = DateTime.UtcNow,
+            AccessCount = 0,
+            ManagementKeyHash = Convert.ToHexString(
+                SHA256.HashData(Encoding.UTF8.GetBytes(ManagementKey)))
+        };
+    }
+
+    private static LinkService CreateService(Link? link)
+    {
+        return new LinkService(
+            new FakeLinkRepository(link),
+            new ShortCodeGenerator(),
+            new TargetUrlValidator());
+    }
+
+    private sealed class FakeLinkRepository(Link? link) : ILinkRepository
+    {
+        public Task<bool> CodeExistsAsync(string code, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(link?.Code == code);
+        }
+
+        public Task<bool> AddAsync(Link newLink, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(false);
+        }
+
+        public Task<Link?> FindByCodeAsync(string code, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(link?.Code == code ? link : null);
+        }
+
+        public Task<bool> TryIncrementAccessCountAsync(
+            string code,
+            DateTime accessedAtUtc,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(false);
+        }
+    }
+}

@@ -81,6 +81,32 @@ public sealed class LinkService(
         return new LinkRedirectResult.Redirect(link);
     }
 
+    public async Task<LinkStatisticsResult> GetStatisticsAsync(
+        string code,
+        string? managementKey,
+        CancellationToken cancellationToken = default)
+    {
+        var link = await linkRepository.FindByCodeAsync(code, cancellationToken);
+        if (link is null)
+        {
+            return new LinkStatisticsResult.NotFound();
+        }
+
+        if (string.IsNullOrEmpty(managementKey))
+        {
+            return new LinkStatisticsResult.Unauthorized();
+        }
+
+        var suppliedKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(managementKey));
+        var storedKeyHash = Convert.FromHexString(link.ManagementKeyHash);
+        if (!CryptographicOperations.FixedTimeEquals(suppliedKeyHash, storedKeyHash))
+        {
+            return new LinkStatisticsResult.Unauthorized();
+        }
+
+        return new LinkStatisticsResult.Authorized(link.Code, link.AccessCount);
+    }
+
     private static bool IsValidCustomCode(string code)
     {
         return code.Length is >= 4 and <= 20

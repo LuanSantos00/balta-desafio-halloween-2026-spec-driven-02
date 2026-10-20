@@ -58,10 +58,41 @@ public static class LinksEndpoints
                 };
             });
 
+        endpoints.MapGet(
+            "/api/links/{code}/stats",
+            async (
+                string code,
+                LinkService linkService,
+                HttpContext httpContext,
+                CancellationToken cancellationToken) =>
+            {
+                var managementKeyHeader = httpContext.Request.Headers["X-Management-Key"];
+
+                var managementKey = managementKeyHeader.Count == 1
+                    ? managementKeyHeader[0]
+                    : null;
+
+                var result = await linkService.GetStatisticsAsync(
+                    code,
+                    managementKey,
+                    cancellationToken);
+
+                return result switch
+                {
+                    LinkStatisticsResult.Authorized authorized => Results.Ok(
+                        new LinkStatisticsResponse(authorized.Code, authorized.AccessCount)),
+                    LinkStatisticsResult.Unauthorized => Results.Unauthorized(),
+                    LinkStatisticsResult.NotFound => Results.NotFound(),
+                    _ => throw new InvalidOperationException("Resultado de estatísticas de link não reconhecido.")
+                };
+            });
+
         return endpoints;
     }
 
     private sealed record CreateLinkRequest(string? TargetUrl, string? Code);
 
     private sealed record CreateLinkResponse(string ShortUrl, string Code, string ManagementKey);
+
+    private sealed record LinkStatisticsResponse(string Code, long AccessCount);
 }
